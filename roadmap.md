@@ -1,9 +1,0 @@
-- [ ] Use ready made theme package ex. `flex_color_scheme`.
-- [ ] Set default theme to `system`.
-- [ ] Github build system integration.
-- [ ] Windows deployment.
-- [ ] MacOSX deployment.
-- [ ] Implement flatpak packaging.
-- [ ] Multi-language.
-- [ ] Dynamic layout for landscape/portrait modes.
-- [ ] Android deployment.

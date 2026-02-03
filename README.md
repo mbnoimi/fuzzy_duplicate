@@ -2,15 +2,16 @@
 
 <p align="center">
   <img src="https://upload.wikimedia.org/wikipedia/commons/0/00/Flag_of_Palestine.svg" alt="Palestine Flag" width="60" height="40">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/b/b8/Flag_of_Syria_%281930%E2%80%931958%2C_1961%E2%80%931963%29.svg" alt="Syria Flag" width="70" height="40">
   <img src="https://upload.wikimedia.org/wikipedia/commons/4/49/Flag_of_Ukraine.svg" alt="Ukraine Flag" width="60" height="40">
 </p>
 
 <p align="center">
-  <b>🕊️ We stand in solidarity with Palestine and Ukraine 🕊️</b>
+  <b>🕊️ Freedom for Palestine, Ukraine, Syria, and all nations fighting against tyrants 🕊️</b>
 </p>
 
 <p align="center">
-  <sub>Free Palestine • Peace for Ukraine</sub>
+  <sub>Free Palestine • Free Syria • Peace for Ukraine</sub>
 </p>
 
 <br>
@@ -24,11 +25,12 @@
 </p>
 
 <p align="center">
-  <a href="#features">Features</a> •
-  <a href="#installation">Installation</a> •
-  <a href="#usage">Usage</a> •
-  <a href="#building">Building</a> •
-  <a href="#contributing">Contributing</a>
+  <a href="#-features">Features</a> •
+  <a href="#-installation">Installation</a> •
+  <a href="#-usage">Usage</a> •
+  <a href="#️-building">Building</a> •
+  <a href="#-contributing">Contributing</a> •
+  <a href="#-roadmap">Roadmap</a>
 </p>
 
 ---
@@ -53,7 +55,7 @@ Download the latest release for your platform from the [Releases](https://github
 
 **Supported Platforms:**
 - Linux (x64)
-- Windows (x64)
+- Windows (coming soon)
 - macOS (coming soon)
 
 ### Build from Source
@@ -171,32 +173,6 @@ dart run lib/main.dart -t videos -s /path/to/videos -T /path/to/duplicates
 
 ---
 
-## 🏗️ Building & Packaging
-
-### Linux
-
-```bash
-# Build and package for Linux
-chmod +x build_linux.sh
-./build_linux.sh
-```
-
-Creates a `.tar.gz` archive in the `build/` directory.
-
-### Windows
-
-```powershell
-# Build and package for Windows
-.\build_windows.ps1
-```
-
-Creates a portable executable in the `build/` directory.
-
-### Flatpak (Linux)
-
-Coming soon! See our [Roadmap](#roadmap).
-
----
 
 ## 🛠️ Technology Stack
 
@@ -248,13 +224,17 @@ Found a bug or have a feature request? [Open an issue](https://github.com/mbnoim
 - [x] Material 3 GUI with dark/light themes
 - [x] CLI interface for automation
 - [x] Cross-platform builds (Linux, Windows)
-- [ ] Flatpak packaging for Linux
-- [ ] macOS support
-- [ ] Multi-language support (i18n)
+- [ ] Windows distribution
+- [ ] Implement flatpak packaging
+- [ ] Publish in flathub.org
+- [ ] Multi-language support
+- [ ] Github build system integration
+- [ ] Set default theme to `system`
+- [ ] Use ready made theme package ex. `flex_color_scheme`
+- [ ] Dynamic layout for landscape/portrait modes
 - [ ] Android distribution
+- [ ] MacOSX distribution
 - [ ] Cloud storage integration
-- [ ] Advanced filtering and search
-- [ ] Duplicate preview (images, videos)
 
 ---
 
@@ -274,7 +254,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <p align="center">
-  Made with ❤️ by the open source community
+  Made with ❤️ by a Syrian developer who believes in freedom for Palestine, Ukraine, Syria, and any nation standing against tyrants
 </p>
 
 <p align="center">
