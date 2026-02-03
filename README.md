@@ -28,7 +28,7 @@
   <a href="#-features">Features</a> •
   <a href="#-installation">Installation</a> •
   <a href="#-usage">Usage</a> •
-  <a href="#️-building">Building</a> •
+  <a href="#-building">Building</a> •
   <a href="#-contributing">Contributing</a> •
   <a href="#-roadmap">Roadmap</a>
 </p>
