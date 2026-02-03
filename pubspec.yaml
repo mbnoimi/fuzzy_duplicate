@@ -1,0 +1,57 @@
+name: fuzzy_duplicate
+description: A fuzzy duplicate finder with GUI and CLI interfaces
+version: 0.8.0
+homepage: https://github.com/mbnoimi/fuzzy_duplicate
+repository: https://github.com/mbnoimi/fuzzy_duplicate
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  args: ^2.7.0
+  crypt: ^4.3.1
+  file_picker: ^10.3.8
+
+  flutter:
+    sdk: flutter
+  fuzzywuzzy: ^1.2.0
+  path: ^1.9.1
+  provider: ^6.1.5+1
+  xxh3: ^1.2.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_svg: ^2.2.3
+  package_info_plus: ^9.0.0
+  path_provider: ^2.1.5
+  url_launcher: ^6.3.2
+  launcher_name: ^1.0.2
+  window_manager: ^0.5.1
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  generate: true
+  assets:
+    - assets/icons/logo.svg
+
+flutter_launcher_icons:
+  windows:
+    generate: true
+    image_path: "assets/icons/icon.png"
+    icon_size: 48
+  linux:
+    generate: true
+    image_path: "assets/icons/icon.png"
+    icon_size: 48
+
+scripts:
+  pre-build: dart tool/update_app_info.dart
+
+launcher_name:
+  default: "Fuzzy Duplicate"
+  en: "Fuzzy Duplicate"
+  ar: "Fuzzy Duplicate"
+  

@@ -1,0 +1,438 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="256"
+   height="256"
+   viewBox="0 0 256 256"
+   version="1.1"
+   id="svg22"
+   sodipodi:docname="logo.svg"
+   inkscape:version="1.4.3 (0d15f75042, 2025-12-25)"
+   inkscape:export-filename="./logo.png"
+   inkscape:export-xdpi="384"
+   inkscape:export-ydpi="384"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview22"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="2.256665"
+     inkscape:cx="118.98089"
+     inkscape:cy="116.32209"
+     inkscape:window-width="1920"
+     inkscape:window-height="1023"
+     inkscape:window-x="1920"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg22"
+     showguides="true">
+    <sodipodi:guide
+       position="35.910879,125.76776"
+       orientation="1,0"
+       id="guide18"
+       inkscape:locked="false" />
+  </sodipodi:namedview>
+  <defs
+     id="defs7">
+    <!-- Golden gradient for handle -->
+    <linearGradient
+       id="goldGradient"
+       x1="83.251877"
+       y1="359.19911"
+       x2="113.18514"
+       y2="389.13237"
+       gradientTransform="scale(2.1380899,0.46770717)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0%"
+         stop-color="#FFF8E1"
+         id="stop1" />
+      <stop
+         offset="40%"
+         stop-color="#FBC02D"
+         id="stop2" />
+      <stop
+         offset="70%"
+         stop-color="#F9A825"
+         id="stop3" />
+      <stop
+         offset="100%"
+         stop-color="#F57F17"
+         id="stop4" />
+    </linearGradient>
+    <!-- Glass gradient -->
+    <radialGradient
+       id="glassGradient"
+       cx="133.6"
+       cy="112.8"
+       r="67.199999"
+       fx="133.6"
+       fy="112.8"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(1.0538061,0,0,1.0538061,-7.9633051,-7.1024073)">
+      <stop
+         offset="0"
+         stop-color="rgba(255,255,255,0.9)"
+         id="stop5"
+         style="stop-color:#ffffff;stop-opacity:0.08546699;" />
+      <stop
+         offset="0.8377862"
+         stop-color="rgba(255,255,255,0.6)"
+         id="stop6"
+         style="stop-color:#bababa;stop-opacity:0.35348696;" />
+      <stop
+         offset="1"
+         stop-color="rgba(255,255,255,0.35)"
+         id="stop7"
+         style="stop-color:#ababab;stop-opacity:1;" />
+    </radialGradient>
+  </defs>
+  <!-- Window -->
+  <rect
+     x="24"
+     y="32"
+     width="208"
+     height="176"
+     rx="16"
+     fill="#ECEFF1"
+     id="rect7" />
+  <!-- Title bar -->
+  <rect
+     x="24"
+     y="32"
+     width="208"
+     height="36"
+     rx="16"
+     fill="#CFD8DC"
+     id="rect8" />
+  <!-- XFCE buttons -->
+  <circle
+     cx="44"
+     cy="50"
+     r="6"
+     fill="#EF5350"
+     id="circle8" />
+  <circle
+     cx="62"
+     cy="50"
+     r="6"
+     fill="#FFCA28"
+     id="circle9" />
+  <circle
+     cx="80"
+     cy="50"
+     r="6"
+     fill="#66BB6A"
+     id="circle10" />
+  <!-- Small files in window -->
+  <!-- File details -->
+  <!-- Magnifier lens rim -->
+  <!-- Glass lens -->
+  <!-- Lens highlight -->
+  <!-- Zoomed files (larger & centered) -->
+  <!-- OK file -->
+  <!-- DELETE file -->
+  <!-- Golden magnifier handle -->
+  <g
+     id="g2"
+     transform="translate(-20.369645,-12.746634)">
+    <g
+       id="g22"
+       transform="matrix(0.85538085,0,0,0.85538085,9.797947,18.1256)">
+      <rect
+         x="120"
+         y="108"
+         width="40"
+         height="52"
+         rx="8"
+         fill="#c8e6c9"
+         id="rect17" />
+      <line
+         x1="126"
+         y1="118"
+         x2="154"
+         y2="118"
+         stroke="#81c784"
+         stroke-width="2"
+         id="line17" />
+      <line
+         x1="126"
+         y1="128"
+         x2="150"
+         y2="128"
+         stroke="#81c784"
+         stroke-width="2"
+         id="line18" />
+      <path
+         d="m 127.22292,145.05101 8,8 16,-18"
+         stroke="#2e7d32"
+         stroke-width="3"
+         fill="none"
+         stroke-linecap="round"
+         id="path18" />
+    </g>
+    <g
+       id="g23"
+       transform="matrix(0.85538085,0,0,0.85538085,9.797947,18.1256)">
+      <rect
+         x="164"
+         y="108"
+         width="40"
+         height="52"
+         rx="8"
+         fill="#ffcdd2"
+         id="rect18" />
+      <line
+         x1="170"
+         y1="118"
+         x2="198"
+         y2="118"
+         stroke="#ef9a9a"
+         stroke-width="2"
+         id="line19" />
+      <line
+         x1="170"
+         y1="128"
+         x2="194"
+         y2="128"
+         stroke="#ef9a9a"
+         stroke-width="2"
+         id="line20" />
+      <line
+         x1="172"
+         y1="136"
+         x2="196"
+         y2="156"
+         stroke="#c62828"
+         stroke-width="3"
+         stroke-linecap="round"
+         id="line21" />
+      <line
+         x1="196"
+         y1="136"
+         x2="172"
+         y2="156"
+         stroke="#c62828"
+         stroke-width="3"
+         stroke-linecap="round"
+         id="line22" />
+    </g>
+  </g>
+  <g
+     id="g18"
+     transform="translate(-4.33782)">
+    <g
+       id="g4"
+       transform="matrix(0.71015911,0,0,0.71015911,6.3921666,59.495718)">
+      <rect
+         x="48"
+         y="150"
+         width="34"
+         height="28"
+         rx="5"
+         fill="#cfd8dc"
+         id="rect12" />
+      <rect
+         x="94"
+         y="150"
+         width="34"
+         height="28"
+         rx="5"
+         fill="#cfd8dc"
+         id="rect13" />
+    </g>
+    <g
+       id="g14"
+       transform="matrix(0.71015911,0,0,0.71015911,69.843818,59.495718)">
+      <rect
+         x="48"
+         y="150"
+         width="34"
+         height="28"
+         rx="5"
+         fill="#cfd8dc"
+         id="rect9" />
+      <rect
+         x="94"
+         y="150"
+         width="34"
+         height="28"
+         rx="5"
+         fill="#cfd8dc"
+         id="rect14" />
+    </g>
+    <g
+       id="g17"
+       transform="matrix(0.71015911,0,0,0.71015911,133.29547,59.495718)">
+      <rect
+         x="48"
+         y="150"
+         width="34"
+         height="28"
+         rx="5"
+         fill="#cfd8dc"
+         id="rect15" />
+      <rect
+         x="94"
+         y="150"
+         width="34"
+         height="28"
+         rx="5"
+         fill="#cfd8dc"
+         id="rect16" />
+    </g>
+  </g>
+  <g
+     id="g27"
+     transform="matrix(0.71015911,0,0,0.71015911,129.23917,17.011017)">
+    <rect
+       x="94"
+       y="92"
+       width="34"
+       height="46"
+       rx="5"
+       fill="#bbdefb"
+       id="rect20" />
+    <g
+       stroke="#90a4ae"
+       stroke-width="1.6"
+       id="g26">
+      <line
+         x1="98"
+         y1="102"
+         x2="122"
+         y2="102"
+         id="line25" />
+      <line
+         x1="98"
+         y1="110"
+         x2="118"
+         y2="110"
+         id="line26" />
+    </g>
+  </g>
+  <g
+     id="g32"
+     transform="matrix(0.71015911,0,0,0.71015911,129.23917,53.671972)">
+    <rect
+       x="94"
+       y="92"
+       width="34"
+       height="46"
+       rx="5"
+       fill="#bbdefb"
+       id="rect28" />
+    <g
+       stroke="#90a4ae"
+       stroke-width="1.6"
+       id="g31">
+      <line
+         x1="98"
+         y1="102"
+         x2="122"
+         y2="102"
+         id="line30" />
+      <line
+         x1="98"
+         y1="110"
+         x2="118"
+         y2="110"
+         id="line31" />
+    </g>
+  </g>
+  <g
+     id="g1"
+     transform="translate(-19.157291,-13.466892)">
+    <circle
+       cx="148"
+       cy="132"
+       r="54"
+       fill="#eceff1"
+       stroke="#90a4ae"
+       stroke-width="5"
+       id="circle16"
+       style="fill:none;stroke:#90a4ae;stroke-opacity:1" />
+    <circle
+       cx="148"
+       cy="132"
+       r="50.582695"
+       fill="url(#glassGradient)"
+       id="circle17"
+       style="fill:url(#glassGradient);stroke:#ffffff;stroke-width:3.16142;stroke-dasharray:none" />
+    <rect
+       x="178"
+       y="168"
+       width="64"
+       height="14"
+       rx="7"
+       transform="rotate(45,178,168)"
+       fill="url(#goldGradient)"
+       id="rect22"
+       style="fill:url(#goldGradient)" />
+  </g>
+  <g
+     id="g34"
+     transform="matrix(0.71015911,0,0,0.71015911,-29.938311,17.011017)">
+    <rect
+       x="94"
+       y="92"
+       width="34"
+       height="46"
+       rx="5"
+       fill="#bbdefb"
+       id="rect32" />
+    <g
+       stroke="#90a4ae"
+       stroke-width="1.6"
+       id="g33">
+      <line
+         x1="98"
+         y1="102"
+         x2="122"
+         y2="102"
+         id="line32" />
+      <line
+         x1="98"
+         y1="110"
+         x2="118"
+         y2="110"
+         id="line33" />
+    </g>
+  </g>
+  <g
+     id="g36"
+     transform="matrix(0.71015911,0,0,0.71015911,-29.938311,53.671972)">
+    <rect
+       x="94"
+       y="92"
+       width="34"
+       height="46"
+       rx="5"
+       fill="#bbdefb"
+       id="rect34" />
+    <g
+       stroke="#90a4ae"
+       stroke-width="1.6"
+       id="g35">
+      <line
+         x1="98"
+         y1="102"
+         x2="122"
+         y2="102"
+         id="line34" />
+      <line
+         x1="98"
+         y1="110"
+         x2="118"
+         y2="110"
+         id="line35" />
+    </g>
+  </g>
+</svg>
