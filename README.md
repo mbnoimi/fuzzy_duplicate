@@ -28,9 +28,9 @@
   <a href="#-features">Features</a> •
   <a href="#-installation">Installation</a> •
   <a href="#-usage">Usage</a> •
-  <a href="#-building-from-source">Building</a> •
+  <a href="#build-from-source">Building</a> •
   <a href="#-contributing">Contributing</a> •
-  <a href="#-roadmap">Roadmap</a>
+  <a href="#%EF%B8%8F-roadmap">Roadmap</a>
 </p>
 
 ---
