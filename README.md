@@ -55,7 +55,7 @@ Download the latest release for your platform from the [Releases](https://github
 
 **Supported Platforms:**
 - Linux (x64)
-- Windows (coming soon)
+- Windows (x64)
 - macOS (coming soon)
 
 ### Build from Source
