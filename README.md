@@ -224,7 +224,7 @@ Found a bug or have a feature request? [Open an issue](https://github.com/mbnoim
 - [x] Material 3 GUI with dark/light themes
 - [x] CLI interface for automation
 - [x] Cross-platform builds (Linux, Windows)
-- [ ] Windows distribution
+- [x] Windows distribution
 - [ ] Implement flatpak packaging
 - [ ] Publish in flathub.org
 - [ ] Multi-language support

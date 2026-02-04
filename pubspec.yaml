@@ -1,6 +1,6 @@
 name: fuzzy_duplicate
 description: A fuzzy duplicate finder with GUI and CLI interfaces
-version: 0.8.0
+version: 0.8.5
 homepage: https://github.com/mbnoimi/fuzzy_duplicate
 repository: https://github.com/mbnoimi/fuzzy_duplicate
 
@@ -30,6 +30,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
+  msix: ^3.16.13
 
 flutter:
   uses-material-design: true
@@ -55,3 +56,11 @@ launcher_name:
   en: "Fuzzy Duplicate"
   ar: "Fuzzy Duplicate"
   
+msix_config:
+  display_name: "Fuzzy Duplicate"
+  publisher_display_name: mbnoimi@gmail.com
+  identity_name: fuzzy_duplicate.mbnoimi.github.com
+  msix_version: 1.0.0.0
+  logo_path: "assets/icons/icon.png"
+  capabilities: internetClient, location, microphone, webcam
+  install_certificate: false
