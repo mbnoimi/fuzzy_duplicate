@@ -58,8 +58,8 @@ launcher_name:
   
 msix_config:
   display_name: "Fuzzy Duplicate"
-  publisher_display_name: mbnoimi@gmail.com
-  identity_name: fuzzy_duplicate.mbnoimi.github.com
+  publisher_display_name: mbnoimi
+  identity_name: fuzzy_duplicate.mbnoimi.com.github
   msix_version: 1.0.0.0
   logo_path: "assets/icons/icon.png"
   capabilities: internetClient, location, microphone, webcam
