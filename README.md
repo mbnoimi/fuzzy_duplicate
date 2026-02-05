@@ -231,6 +231,7 @@ Found a bug or have a feature request? [Open an issue](https://github.com/mbnoim
 - [ ] Github build system integration
 - [ ] Set default theme to `system`
 - [ ] Use ready made theme package ex. `flex_color_scheme`
+- [ ] Add Windows distribution into **choco** package manager.
 - [ ] Dynamic layout for landscape/portrait modes
 - [ ] Android distribution
 - [ ] MacOSX distribution
