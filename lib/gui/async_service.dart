@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:isolate';
-import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import '../core_service.dart';
@@ -14,6 +13,9 @@ class IsolateMessage {
   final bool matchExtension;
   final int minFileCount;
   final SendPort responsePort;
+  final int startIndex;
+  final int endIndex;
+  final bool useWindowing;
 
   IsolateMessage({
     required this.files,
@@ -24,6 +26,9 @@ class IsolateMessage {
     required this.matchExtension,
     required this.minFileCount,
     required this.responsePort,
+    this.startIndex = 0,
+    this.endIndex = -1,
+    this.useWindowing = true,
   });
 }
 
@@ -41,14 +46,27 @@ class ResultMessage {
   ResultMessage({required this.duplicateGroups, this.error});
 }
 
+class PartitionResult {
+  final List<Map<String, dynamic>> duplicateGroups;
+  final int partitionId;
+
+  PartitionResult({required this.duplicateGroups, required this.partitionId});
+}
+
 // Global abort flag for the isolate
 bool _abortRequested = false;
 
 // Core service instance for isolate operations
 final FuzzyDuplicateService _coreService = FuzzyDuplicateService();
 
-// Isolate entry point
-void isolateEntry(SendPort mainSendPort) {
+// Number of worker isolates to use (based on CPU cores)
+const int _numWorkerIsolates = 4;
+
+// Window size for windowing strategy (only compare files within this range)
+const int _comparisonWindowSize = 100;
+
+// Isolate entry point for parallel processing
+void workerIsolateEntry(SendPort mainSendPort) {
   final receivePort = ReceivePort();
   mainSendPort.send(receivePort.sendPort);
 
@@ -64,6 +82,9 @@ void isolateEntry(SendPort mainSendPort) {
           ignoreFileSize: message.ignoreFileSize,
           matchExtension: message.matchExtension,
           minFileCount: message.minFileCount,
+          startIndex: message.startIndex,
+          endIndex: message.endIndex,
+          useWindowing: message.useWindowing,
           onProgress: (progress, fileName) {
             message.responsePort
                 .send(ProgressMessage(progress: progress, fileName: fileName));
@@ -94,38 +115,70 @@ Future<List<Map<String, dynamic>>> _findFuzzyDuplicatesInIsolate(
   bool ignoreFileSize = false,
   bool matchExtension = false,
   int minFileCount = 2,
+  int startIndex = 0,
+  int endIndex = -1,
+  bool useWindowing = true,
   Function(double, String)? onProgress,
 }) async {
+  // Determine the range to process
+  final actualEndIndex =
+      endIndex < 0 ? files.length : endIndex.clamp(0, files.length);
+  final actualStartIndex = startIndex.clamp(0, files.length);
+
+  if (actualStartIndex >= actualEndIndex) {
+    return [];
+  }
+
   // Convert map data to FileInfo objects for core service processing
   final List<FileInfo> fileInfoList =
       files.map((fileMap) => FileInfo.fromMap(fileMap)).toList();
 
+  // Sort files by basename for windowing strategy
+  // This groups similar names together alphabetically
+  final List<int> sortedIndices = List.generate(fileInfoList.length, (i) => i);
+  sortedIndices.sort((a, b) {
+    final nameA =
+        path.basenameWithoutExtension(fileInfoList[a].fileName).toLowerCase();
+    final nameB =
+        path.basenameWithoutExtension(fileInfoList[b].fileName).toLowerCase();
+    return nameA.compareTo(nameB);
+  });
+
+  // Create reverse mapping from original index to sorted position
+  final Map<int, int> sortedPositionMap = {};
+  for (int i = 0; i < sortedIndices.length; i++) {
+    sortedPositionMap[sortedIndices[i]] = i;
+  }
+
   // Use core service for hash computation (if needed)
   if (checkContent) {
     onProgress?.call(0.1, 'Computing file hashes...');
-    for (int i = 0; i < fileInfoList.length; i++) {
-      // Check for abort request
+    for (int i = actualStartIndex; i < actualEndIndex; i++) {
       if (_abortRequested) break;
 
-      if (fileInfoList[i].hash == null) {
-        final hash =
-            await _coreService.calculateFileHash(fileInfoList[i].filePath);
-        fileInfoList[i] = FileInfo(
-          filePath: fileInfoList[i].filePath,
-          fileName: fileInfoList[i].fileName,
-          fileSize: fileInfoList[i].fileSize,
+      final sortedIdx = sortedIndices[i];
+      if (fileInfoList[sortedIdx].hash == null) {
+        final hash = await _coreService
+            .calculateFileHash(fileInfoList[sortedIdx].filePath);
+        fileInfoList[sortedIdx] = FileInfo(
+          filePath: fileInfoList[sortedIdx].filePath,
+          fileName: fileInfoList[sortedIdx].fileName,
+          fileSize: fileInfoList[sortedIdx].fileSize,
           hash: hash,
-          modifiedDate: fileInfoList[i].modifiedDate,
+          modifiedDate: fileInfoList[sortedIdx].modifiedDate,
         );
       }
 
-      // Update hash computation progress (10% to 30%)
-      final progress = 0.1 + (i + 1) / fileInfoList.length * 0.2;
-      onProgress?.call(progress.clamp(0.1, 0.3),
-          'Hashed ${i + 1}/${fileInfoList.length} files...');
-
       // Update original maps with computed hashes
-      files[i]['hash'] = fileInfoList[i].hash;
+      files[sortedIdx]['hash'] = fileInfoList[sortedIdx].hash;
+
+      // Update hash computation progress (10% to 30%)
+      final progress = 0.1 +
+          (i - actualStartIndex + 1) /
+              (actualEndIndex - actualStartIndex) *
+              0.2;
+      onProgress?.call(progress.clamp(0.1, 0.3),
+          'Hashed ${i - actualStartIndex + 1}/${actualEndIndex - actualStartIndex} files...');
     }
   }
 
@@ -136,17 +189,20 @@ Future<List<Map<String, dynamic>>> _findFuzzyDuplicatesInIsolate(
   final Map<String, List<int>> sizeGroups = {};
   final Map<String, List<int>> extensionGroups = {};
 
-  for (int i = 0; i < fileInfoList.length; i++) {
+  for (int i = actualStartIndex; i < actualEndIndex; i++) {
+    final sortedIdx = sortedIndices[i];
+
     // Group by size buckets (within tolerance)
     if (!ignoreFileSize) {
-      final sizeBucket = ((fileInfoList[i].fileSize) / 1024).round();
-      sizeGroups.putIfAbsent('$sizeBucket', () => []).add(i);
+      final sizeBucket = ((fileInfoList[sortedIdx].fileSize) / 1024).round();
+      sizeGroups.putIfAbsent('$sizeBucket', () => []).add(sortedIdx);
     }
 
     // Group by extension if needed
     if (matchExtension) {
-      final ext = path.extension(fileInfoList[i].fileName).toLowerCase();
-      extensionGroups.putIfAbsent(ext, () => []).add(i);
+      final ext =
+          path.extension(fileInfoList[sortedIdx].fileName).toLowerCase();
+      extensionGroups.putIfAbsent(ext, () => []).add(sortedIdx);
     }
   }
 
@@ -164,45 +220,82 @@ Future<List<Map<String, dynamic>>> _findFuzzyDuplicatesInIsolate(
   // Stage 4: Core comparison process (40-90%)
   onProgress?.call(0.4, 'Finding similar files...');
   final List<Map<String, dynamic>> duplicateGroups = [];
+  final Set<int> processedFiles = {};
 
-  for (int i = 0; i < fileInfoList.length; i++) {
+  for (int i = actualStartIndex; i < actualEndIndex; i++) {
     if (_abortRequested) break;
 
-    // Report current file being processed with stage progress (40% to 90%)
-    final stageProgress = 0.4 + (i / fileInfoList.length) * 0.5;
-    onProgress?.call(stageProgress, fileInfoList[i].fileName);
+    final sortedIdx = sortedIndices[i];
+    if (processedFiles.contains(sortedIdx)) continue;
 
-    final List<Map<String, dynamic>> similarFiles = [files[i]];
-    final String baseName = getBasename(i);
+    // Report current file being processed with stage progress (40% to 90%)
+    // Throttle updates to avoid excessive UI rebuilds (every 50 files)
+    if ((i - actualStartIndex) % 50 == 0 || i == actualEndIndex - 1) {
+      final stageProgress = 0.4 +
+          (i - actualStartIndex) / (actualEndIndex - actualStartIndex) * 0.5;
+      onProgress?.call(stageProgress, fileInfoList[sortedIdx].fileName);
+    }
+
+    final List<Map<String, dynamic>> similarFiles = [files[sortedIdx]];
+    final String baseName = getBasename(sortedIdx);
 
     // Determine comparison candidates based on constraints
     List<int> candidates;
     if (matchExtension) {
-      final ext = path.extension(fileInfoList[i].fileName).toLowerCase();
+      final ext =
+          path.extension(fileInfoList[sortedIdx].fileName).toLowerCase();
       candidates = extensionGroups[ext] ?? [];
     } else if (!ignoreFileSize) {
-      final sizeBucket = ((fileInfoList[i].fileSize) / 1024).round();
+      final sizeBucket = ((fileInfoList[sortedIdx].fileSize) / 1024).round();
       candidates = [];
       // Check nearby size buckets
       for (int offset = -1; offset <= 1; offset++) {
         candidates.addAll(sizeGroups['${sizeBucket + offset}'] ?? []);
       }
     } else {
-      candidates = List.generate(fileInfoList.length, (idx) => idx);
+      // For windowing strategy, only consider files within window
+      if (useWindowing) {
+        candidates = [];
+        final windowStart = (i + 1).clamp(actualStartIndex, actualEndIndex);
+        final windowEnd =
+            (i + _comparisonWindowSize).clamp(actualStartIndex, actualEndIndex);
+        for (int j = windowStart; j < windowEnd; j++) {
+          candidates.add(sortedIndices[j]);
+        }
+      } else {
+        candidates = List.generate(files.length, (idx) => idx);
+      }
+    }
+
+    // Apply windowing constraint to candidates
+    if (useWindowing && !matchExtension && !ignoreFileSize) {
+      // Filter candidates to only those within window
+      final windowEnd =
+          (i + _comparisonWindowSize).clamp(actualStartIndex, actualEndIndex);
+      candidates = candidates.where((idx) {
+        final pos = sortedPositionMap[idx] ?? -1;
+        return pos > i && pos < windowEnd;
+      }).toList();
     }
 
     for (final j in candidates) {
-      if (j <= i) continue;
+      if (j == sortedIdx || processedFiles.contains(j)) continue;
+
+      // For windowing strategy, skip if j is before current position
+      if (useWindowing) {
+        final jPos = sortedPositionMap[j] ?? -1;
+        if (jPos <= i) continue;
+      }
 
       bool isSimilar = false;
 
       if (checkContent &&
-          files[i]['hash'] != null &&
+          files[sortedIdx]['hash'] != null &&
           files[j]['hash'] != null) {
-        isSimilar = files[i]['hash'] == files[j]['hash'];
+        isSimilar = files[sortedIdx]['hash'] == files[j]['hash'];
       } else {
         // Cache similarity calculation
-        final cacheKey = '$i-$j';
+        final cacheKey = '$sortedIdx-$j';
         final nameSimilarity = similarityCache.putIfAbsent(
           cacheKey,
           () => ratio(baseName, getBasename(j)) / 100.0,
@@ -212,8 +305,9 @@ Future<List<Map<String, dynamic>>> _findFuzzyDuplicatesInIsolate(
         if (nameSimilarity < similarityThreshold) continue;
 
         final sizeDifference =
-            ((fileInfoList[i].fileSize) - (fileInfoList[j].fileSize)).abs() /
-                (fileInfoList[i].fileSize).clamp(1, double.infinity);
+            ((fileInfoList[sortedIdx].fileSize) - (fileInfoList[j].fileSize))
+                    .abs() /
+                (fileInfoList[sortedIdx].fileSize).clamp(1, double.infinity);
 
         final nameMatch = nameSimilarity >= 0.99;
         final sizeMatch = ignoreFileSize ||
@@ -223,7 +317,8 @@ Future<List<Map<String, dynamic>>> _findFuzzyDuplicatesInIsolate(
         isSimilar = sizeMatch;
 
         if (isSimilar && matchExtension) {
-          final ext1 = path.extension(fileInfoList[i].fileName).toLowerCase();
+          final ext1 =
+              path.extension(fileInfoList[sortedIdx].fileName).toLowerCase();
           final ext2 = path.extension(fileInfoList[j].fileName).toLowerCase();
           isSimilar = ext1 == ext2;
         }
@@ -231,20 +326,40 @@ Future<List<Map<String, dynamic>>> _findFuzzyDuplicatesInIsolate(
 
       if (isSimilar) {
         similarFiles.add(files[j]);
+        processedFiles.add(j);
       }
     }
 
     if (similarFiles.length >= minFileCount) {
-      final avgSimilarity = similarFiles.length > 2
-          ? 0.9
-          : similarityCache['$i-${similarFiles.indexOf(similarFiles[1])}'] ??
+      // Calculate average similarity for the group
+      double avgSimilarity = 0.9;
+      if (similarFiles.length == 2) {
+        // For pairs, use the cached similarity between the two files
+        final firstPath = similarFiles[0]['filePath'] as String;
+        final secondPath = similarFiles[1]['filePath'] as String;
+
+        // Find indices in fileInfoList
+        int? firstIdx, secondIdx;
+        for (int k = 0; k < fileInfoList.length; k++) {
+          if (fileInfoList[k].filePath == firstPath) firstIdx = k;
+          if (fileInfoList[k].filePath == secondPath) secondIdx = k;
+          if (firstIdx != null && secondIdx != null) break;
+        }
+
+        if (firstIdx != null && secondIdx != null) {
+          avgSimilarity = similarityCache['$firstIdx-$secondIdx'] ??
+              similarityCache['$secondIdx-$firstIdx'] ??
               0.9;
+        }
+      }
 
       duplicateGroups.add({
         'files': similarFiles,
         'similarity': avgSimilarity,
       });
     }
+
+    processedFiles.add(sortedIdx);
   }
 
   // Stage 5: Finalizing results (90-95%)
@@ -253,33 +368,42 @@ Future<List<Map<String, dynamic>>> _findFuzzyDuplicatesInIsolate(
   // Stage 6: Complete (95-100%)
   onProgress?.call(0.95, 'Preparing results for display...');
 
-  // Allow time for UI to update
-  await Future.delayed(const Duration(milliseconds: 500));
-
-  onProgress?.call(1.0, 'Duplicate detection complete');
-
   return duplicateGroups;
 }
 
 class IsolateFuzzyDuplicateService {
-  Isolate? _isolate;
-  ReceivePort? _receivePort;
-  SendPort? _sendPort;
+  final List<Isolate> _isolates = [];
+  final List<ReceivePort> _receivePorts = [];
+  final List<SendPort> _sendPorts = [];
+  bool _isInitialized = false;
 
-  Future<void> _ensureIsolate() async {
-    if (_isolate == null) {
-      _receivePort = ReceivePort();
-      _isolate = await Isolate.spawn(isolateEntry, _receivePort!.sendPort);
+  Future<void> _ensureIsolates() async {
+    if (_isInitialized) return;
+
+    // Create multiple worker isolates
+    for (int i = 0; i < _numWorkerIsolates; i++) {
+      final receivePort = ReceivePort();
+      _receivePorts.add(receivePort);
+
+      final isolate = await Isolate.spawn(
+        workerIsolateEntry,
+        receivePort.sendPort,
+        debugName: 'WorkerIsolate-$i',
+      );
+      _isolates.add(isolate);
 
       final completer = Completer<SendPort>();
-      _receivePort!.listen((message) {
+      receivePort.listen((message) {
         if (message is SendPort && !completer.isCompleted) {
           completer.complete(message);
         }
       });
 
-      _sendPort = await completer.future;
+      final sendPort = await completer.future;
+      _sendPorts.add(sendPort);
     }
+
+    _isInitialized = true;
   }
 
   Future<List<Map<String, dynamic>>> findFuzzyDuplicates(
@@ -292,12 +416,48 @@ class IsolateFuzzyDuplicateService {
     int minFileCount = 2,
     Function(double, String)? onProgress,
   }) async {
-    await _ensureIsolate();
+    await _ensureIsolates();
 
+    // For small datasets, use single isolate to avoid overhead
+    if (files.length < 500) {
+      return await _processWithSingleIsolate(
+        files,
+        similarityThreshold: similarityThreshold,
+        checkContent: checkContent,
+        sizeTolerance: sizeTolerance,
+        ignoreFileSize: ignoreFileSize,
+        matchExtension: matchExtension,
+        minFileCount: minFileCount,
+        onProgress: onProgress,
+      );
+    }
+
+    // Partition files across multiple isolates
+    return await _processWithParallelIsolates(
+      files,
+      similarityThreshold: similarityThreshold,
+      checkContent: checkContent,
+      sizeTolerance: sizeTolerance,
+      ignoreFileSize: ignoreFileSize,
+      matchExtension: matchExtension,
+      minFileCount: minFileCount,
+      onProgress: onProgress,
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _processWithSingleIsolate(
+    List<Map<String, dynamic>> files, {
+    required double similarityThreshold,
+    required bool checkContent,
+    required double sizeTolerance,
+    required bool ignoreFileSize,
+    required bool matchExtension,
+    required int minFileCount,
+    Function(double, String)? onProgress,
+  }) async {
     final responsePort = ReceivePort();
     final completer = Completer<List<Map<String, dynamic>>>();
 
-    // Listen for messages from the isolate
     late StreamSubscription subscription;
     subscription = responsePort.listen((message) {
       if (message is ProgressMessage) {
@@ -313,7 +473,6 @@ class IsolateFuzzyDuplicateService {
       }
     });
 
-    // Send the scan message to the isolate
     final scanMessage = IsolateMessage(
       files: files,
       similarityThreshold: similarityThreshold,
@@ -323,19 +482,160 @@ class IsolateFuzzyDuplicateService {
       matchExtension: matchExtension,
       minFileCount: minFileCount,
       responsePort: responsePort.sendPort,
+      startIndex: 0,
+      endIndex: files.length,
+      useWindowing: true,
     );
 
-    _sendPort!.send(scanMessage);
-
+    _sendPorts[0].send(scanMessage);
     return await completer.future;
   }
 
+  Future<List<Map<String, dynamic>>> _processWithParallelIsolates(
+    List<Map<String, dynamic>> files, {
+    required double similarityThreshold,
+    required bool checkContent,
+    required double sizeTolerance,
+    required bool ignoreFileSize,
+    required bool matchExtension,
+    required int minFileCount,
+    Function(double, String)? onProgress,
+  }) async {
+    final List<Future<PartitionResult>> partitionFutures = [];
+    final partitionSize = (files.length / _numWorkerIsolates).ceil();
+
+    // Create partitions and process in parallel
+    for (int partitionId = 0; partitionId < _numWorkerIsolates; partitionId++) {
+      final startIndex = partitionId * partitionSize;
+      final endIndex =
+          ((partitionId + 1) * partitionSize).clamp(0, files.length);
+
+      if (startIndex >= files.length) break;
+
+      final future = _processPartition(
+        files: files,
+        partitionId: partitionId,
+        startIndex: startIndex,
+        endIndex: endIndex,
+        similarityThreshold: similarityThreshold,
+        checkContent: checkContent,
+        sizeTolerance: sizeTolerance,
+        ignoreFileSize: ignoreFileSize,
+        matchExtension: matchExtension,
+        minFileCount: minFileCount,
+        onProgress: (progress, fileName) {
+          // Calculate overall progress across all partitions
+          final baseProgress = partitionId / _numWorkerIsolates;
+          final partitionProgress = progress / _numWorkerIsolates;
+          onProgress?.call(baseProgress + partitionProgress, fileName);
+        },
+      );
+
+      partitionFutures.add(future);
+    }
+
+    // Wait for all partitions to complete
+    final results = await Future.wait(partitionFutures);
+
+    // Merge results from all partitions
+    final allGroups = <Map<String, dynamic>>[];
+    for (final result in results) {
+      allGroups.addAll(result.duplicateGroups);
+    }
+
+    // Deduplicate groups that might have been found in multiple partitions
+    return _mergeDuplicateGroups(allGroups);
+  }
+
+  Future<PartitionResult> _processPartition({
+    required List<Map<String, dynamic>> files,
+    required int partitionId,
+    required int startIndex,
+    required int endIndex,
+    required double similarityThreshold,
+    required bool checkContent,
+    required double sizeTolerance,
+    required bool ignoreFileSize,
+    required bool matchExtension,
+    required int minFileCount,
+    Function(double, String)? onProgress,
+  }) async {
+    final responsePort = ReceivePort();
+    final completer = Completer<PartitionResult>();
+
+    late StreamSubscription subscription;
+    subscription = responsePort.listen((message) {
+      if (message is ProgressMessage) {
+        onProgress?.call(message.progress, message.fileName);
+      } else if (message is ResultMessage) {
+        subscription.cancel();
+        responsePort.close();
+        if (message.error != null) {
+          completer.completeError(Exception(message.error));
+        } else {
+          completer.complete(PartitionResult(
+            duplicateGroups: message.duplicateGroups,
+            partitionId: partitionId,
+          ));
+        }
+      }
+    });
+
+    final scanMessage = IsolateMessage(
+      files: files,
+      similarityThreshold: similarityThreshold,
+      checkContent: checkContent,
+      sizeTolerance: sizeTolerance,
+      ignoreFileSize: ignoreFileSize,
+      matchExtension: matchExtension,
+      minFileCount: minFileCount,
+      responsePort: responsePort.sendPort,
+      startIndex: startIndex,
+      endIndex: endIndex,
+      useWindowing: true,
+    );
+
+    _sendPorts[partitionId % _sendPorts.length].send(scanMessage);
+    return await completer.future;
+  }
+
+  List<Map<String, dynamic>> _mergeDuplicateGroups(
+    List<Map<String, dynamic>> groups,
+  ) {
+    // Use file path as key to identify duplicate groups
+    final Map<String, Map<String, dynamic>> uniqueGroups = {};
+
+    for (final group in groups) {
+      final files = group['files'] as List;
+      if (files.isEmpty) continue;
+
+      // Create a unique key from all file paths in the group
+      final paths = files
+          .map((f) => f is Map ? f['filePath'] as String : '')
+          .where((p) => p.isNotEmpty)
+          .toList()
+        ..sort();
+      final key = paths.join('|');
+
+      if (!uniqueGroups.containsKey(key)) {
+        uniqueGroups[key] = group;
+      }
+    }
+
+    return uniqueGroups.values.toList();
+  }
+
   void dispose() {
-    _isolate?.kill(priority: Isolate.immediate);
-    _receivePort?.close();
-    _isolate = null;
-    _receivePort = null;
-    _sendPort = null;
+    for (final isolate in _isolates) {
+      isolate.kill(priority: Isolate.immediate);
+    }
+    for (final port in _receivePorts) {
+      port.close();
+    }
+    _isolates.clear();
+    _receivePorts.clear();
+    _sendPorts.clear();
+    _isInitialized = false;
   }
 
   // Method to abort isolate operations
