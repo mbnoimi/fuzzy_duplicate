@@ -137,12 +137,10 @@ jobs:
         printf '</component>\n' >> "${METAINFO_FILE}"
         
         # Create AppRun script
-        cat > "${APPDIR}/AppRun" << 'ENDOFAPPRUN'
-#!/bin/bash
-APPDIR="$(dirname "$(readlink -f "$0")")"
-export LD_LIBRARY_PATH="${APPDIR}/usr/bin/lib:${LD_LIBRARY_PATH}"
-ENDOFAPPRUN
-        
+        echo '#!/bin/bash' > "${APPDIR}/AppRun"
+        echo 'APPDIR="$(dirname "$(readlink -f "$0")")"' >> "${APPDIR}/AppRun"
+        echo 'export LD_LIBRARY_PATH="${APPDIR}/usr/bin/lib:${LD_LIBRARY_PATH}"' >> "${APPDIR}/AppRun"
+        echo '' >> "${APPDIR}/AppRun"
         echo "exec \"\${APPDIR}/usr/bin/${NAME}\" \"\$@\"" >> "${APPDIR}/AppRun"
         chmod +x "${APPDIR}/AppRun"
         
