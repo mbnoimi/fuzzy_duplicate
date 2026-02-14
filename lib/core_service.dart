@@ -371,6 +371,68 @@ class FuzzyDuplicateService {
     // Stage 1: Preparation (0-10%)
     onProgress?.call(0.0, 'Preparing duplicate detection...');
 
+    // FAST PATH: For 100% similarity without content check, use exact name matching
+    // This avoids expensive fuzzy matching and is O(n) instead of O(n²)
+    if (similarityThreshold >= 0.999 && !checkContent) {
+      onProgress?.call(0.2, 'Using fast exact name matching...');
+
+      final Map<String, List<FileInfo>> nameGroups = {};
+
+      for (int i = 0; i < files.length; i++) {
+        final baseName = path.basenameWithoutExtension(files[i].fileName);
+        final key = matchExtension
+            ? '$baseName${path.extension(files[i].fileName).toLowerCase()}'
+            : baseName;
+        nameGroups.putIfAbsent(key, () => []).add(files[i]);
+
+        if (enableUIYielding && i % 100 == 0) {
+          onProgress?.call(0.2 + (i / files.length) * 0.7, 'Grouping files...');
+          await Future.delayed(Duration.zero);
+        }
+      }
+
+      onProgress?.call(0.9, 'Creating duplicate groups...');
+
+      for (final entry in nameGroups.entries) {
+        if (entry.value.length >= minFileCount) {
+          // Filter by size tolerance if needed
+          if (!ignoreFileSize && entry.value.length > 1) {
+            final filtered = <FileInfo>[];
+            for (int i = 0; i < entry.value.length; i++) {
+              bool hasSimilarSize = false;
+              for (int j = 0; j < entry.value.length; j++) {
+                if (i != j) {
+                  final sizeDiff =
+                      (entry.value[i].fileSize - entry.value[j].fileSize)
+                              .abs() /
+                          entry.value[i].fileSize.clamp(1, double.infinity);
+                  if (sizeDiff <= sizeTolerance) {
+                    hasSimilarSize = true;
+                    break;
+                  }
+                }
+              }
+              if (hasSimilarSize || entry.value.length == 1) {
+                filtered.add(entry.value[i]);
+              }
+            }
+            if (filtered.length >= minFileCount) {
+              duplicateGroups.add(
+                DuplicateGroup(files: filtered, similarity: 1.0),
+              );
+            }
+          } else {
+            duplicateGroups.add(
+              DuplicateGroup(files: entry.value, similarity: 1.0),
+            );
+          }
+        }
+      }
+
+      onProgress?.call(1.0, 'Duplicate detection complete');
+      return duplicateGroups;
+    }
+
     // Stage 2: Hash computation if needed (10-30%)
     if (checkContent) {
       onProgress?.call(0.1, 'Computing file hashes...');

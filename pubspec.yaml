@@ -1,6 +1,6 @@
 name: fuzzy_duplicate
 description: A fuzzy duplicate finder with GUI and CLI interfaces
-version: 0.9.0
+version: 0.9.1
 homepage: https://github.com/mbnoimi/fuzzy_duplicate
 repository: https://github.com/mbnoimi/fuzzy_duplicate
 
