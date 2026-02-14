@@ -25,7 +25,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
-        sudo apt-get install -y imagemagick
+        sudo apt-get install -y imagemagick libfuse2
     
     - name: Clean and recreate Linux platform
       run: |
