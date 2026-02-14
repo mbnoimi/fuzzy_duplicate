@@ -1,6 +1,11 @@
 # Fuzzy Duplicate Finder
 
 <p align="center">
+  <a href="https://github.com/mbnoimi/fuzzy_duplicate/actions/workflows/build-linux.yml"><img src="https://github.com/mbnoimi/fuzzy_duplicate/actions/workflows/build-linux.yml/badge.svg" alt="Build Linux"></a>
+  <a href="https://github.com/mbnoimi/fuzzy_duplicate/actions/workflows/build-windows.yml"><img src="https://github.com/mbnoimi/fuzzy_duplicate/actions/workflows/build-windows.yml/badge.svg" alt="Build Windows"></a>
+</p>
+
+<p align="center">
   <img src="https://upload.wikimedia.org/wikipedia/commons/0/00/Flag_of_Palestine.svg" alt="Palestine Flag" width="60" height="40">
   <img src="https://upload.wikimedia.org/wikipedia/commons/b/b8/Flag_of_Syria_%281930%E2%80%931958%2C_1961%E2%80%931963%29.svg" alt="Syria Flag" width="70" height="40">
   <img src="https://upload.wikimedia.org/wikipedia/commons/4/49/Flag_of_Ukraine.svg" alt="Ukraine Flag" width="60" height="40">
@@ -55,9 +60,11 @@
 Download the latest release for your platform from the [Releases](https://github.com/mbnoimi/fuzzy_duplicate/releases) page.
 
 **Supported Platforms:**
-- Linux (x64)
-- Windows (x64)
+- Linux (x64) - `.tar.gz` and `.AppImage`
+- Windows (x64) - `.exe` (installer) and `.zip` (portable)
 - macOS (coming soon)
+
+> **Automated Builds:** All releases are automatically built via GitHub Actions when version tags (e.g., `v0.9.0`) are pushed.
 
 ### Build from Source
 
@@ -301,7 +308,7 @@ Found a bug or have a feature request? [Open an issue](https://github.com/mbnoim
 - [ ] Implement flatpak packaging
 - [ ] Publish in flathub.org
 - [ ] Multi-language support
-- [ ] Github build system integration
+- [x] Github build system integration
 - [ ] Set default theme to `system`
 - [ ] Use ready made theme package ex. `flex_color_scheme`
 - [ ] Add Windows distribution into **choco** package manager.
