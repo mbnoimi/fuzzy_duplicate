@@ -5,6 +5,7 @@ import 'gui/resizable_sidebar.dart';
 import 'gui/configuration_section.dart';
 import 'gui/action_buttons.dart';
 import 'gui/duplicate_list.dart';
+import 'gui/splash_screen.dart';
 
 class FuzzyDuplicateApp extends StatelessWidget {
   const FuzzyDuplicateApp({super.key});
@@ -19,7 +20,7 @@ class FuzzyDuplicateApp extends StatelessWidget {
             title: 'Fuzzy Duplicates Finder',
             themeMode: _getThemeMode(provider.themeMode),
             theme: _getThemeData(provider.themeMode),
-            home: const MainScreen(),
+            home: const AppEntryPoint(),
           );
         },
       ),
@@ -56,6 +57,42 @@ class FuzzyDuplicateApp extends StatelessWidget {
         useMaterial3: true,
       );
     }
+  }
+}
+
+class AppEntryPoint extends StatefulWidget {
+  const AppEntryPoint({super.key});
+
+  @override
+  State<AppEntryPoint> createState() => _AppEntryPointState();
+}
+
+class _AppEntryPointState extends State<AppEntryPoint> {
+  bool _showSplash = true;
+
+  void _onSplashComplete() {
+    setState(() {
+      _showSplash = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 500),
+      transitionBuilder: (child, animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: child,
+        );
+      },
+      child: _showSplash
+          ? SplashScreen(
+              key: const ValueKey('splash'),
+              onAnimationComplete: _onSplashComplete,
+            )
+          : const MainScreen(key: ValueKey('main')),
+    );
   }
 }
 
