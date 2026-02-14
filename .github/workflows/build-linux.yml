@@ -88,7 +88,7 @@ jobs:
         
         cp -r ".build_tmp/${LAUNCHER_NAME}-${VERSION}/"* "${APPDIR}/usr/bin/"
         
-        # Create .desktop file using printf for special characters
+        # Create .desktop file
         printf '%s\n' '[Desktop Entry]' "Name=${LAUNCHER_NAME_PRETTY}" "Comment=${DESCRIPTION}" "Exec=${NAME}" "Icon=${NAME}" 'Type=Application' 'Categories=System;FileTools;Utility;' 'Terminal=false' 'StartupNotify=true' "StartupWMClass=${NAME}" 'Keywords=duplicate;file;finder;fuzzy;similar;search;system;utility;' 'MimeType=inode/directory;' > "${APPDIR}/usr/share/applications/${NAME}.desktop"
         
         # Copy icon
@@ -100,49 +100,48 @@ jobs:
             cp "${APPDIR}/usr/share/icons/hicolor/256x256/apps/${NAME}.png" "${APPDIR}/${NAME}.png"
         fi
         
-        # Create AppStream metadata
+        # Create AppStream metadata using printf to avoid YAML parsing issues
         APP_ID="io.github.${NAME}"
         HOMEPAGE_URL="https://github.com/mbnoimi/${NAME}"
+        METAINFO_FILE="${APPDIR}/usr/share/metainfo/${APP_ID}.metainfo.xml"
         
-        cat > "${APPDIR}/usr/share/metainfo/${APP_ID}.metainfo.xml" << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<component type="desktop-application">
-  <id>${APP_ID}</id>
-  <metadata_license>MIT</metadata_license>
-  <project_license>MIT</project_license>
-  <name>${LAUNCHER_NAME_PRETTY}</name>
-  <summary>${DESCRIPTION}</summary>
-  <description>
-    <p>${LAUNCHER_NAME_PRETTY} is a powerful tool to find and manage duplicate files using fuzzy matching algorithms.</p>
-    <p>Features include:</p>
-    <ul>
-      <li>GUI and CLI interfaces</li>
-      <li>Fuzzy matching for similar files</li>
-      <li>Duplicate detection and management</li>
-    </ul>
-  </description>
-  <developer_name>mbnoimi</developer_name>
-  <url type="homepage">${HOMEPAGE_URL}</url>
-  <url type="bugtracker">${HOMEPAGE_URL}/issues</url>
-  <categories>
-    <category>System</category>
-    <category>FileTools</category>
-    <category>Utility</category>
-  </categories>
-  <provides>
-    <binary>${NAME}</binary>
-  </provides>
-  <launchable type="desktop-id">${NAME}.desktop</launchable>
-  <content_rating type="oars-1.1" />
-</component>
-EOF
+        printf '<?xml version="1.0" encoding="UTF-8"?>\n' > "${METAINFO_FILE}"
+        printf '<component type="desktop-application">\n' >> "${METAINFO_FILE}"
+        printf '  <id>%s</id>\n' "${APP_ID}" >> "${METAINFO_FILE}"
+        printf '  <metadata_license>MIT</metadata_license>\n' >> "${METAINFO_FILE}"
+        printf '  <project_license>MIT</project_license>\n' >> "${METAINFO_FILE}"
+        printf '  <name>%s</name>\n' "${LAUNCHER_NAME_PRETTY}" >> "${METAINFO_FILE}"
+        printf '  <summary>%s</summary>\n' "${DESCRIPTION}" >> "${METAINFO_FILE}"
+        printf '  <description>\n' >> "${METAINFO_FILE}"
+        printf '    <p>%s is a powerful tool to find and manage duplicate files using fuzzy matching algorithms.</p>\n' "${LAUNCHER_NAME_PRETTY}" >> "${METAINFO_FILE}"
+        printf '    <p>Features include:</p>\n' >> "${METAINFO_FILE}"
+        printf '    <ul>\n' >> "${METAINFO_FILE}"
+        printf '      <li>GUI and CLI interfaces</li>\n' >> "${METAINFO_FILE}"
+        printf '      <li>Fuzzy matching for similar files</li>\n' >> "${METAINFO_FILE}"
+        printf '      <li>Duplicate detection and management</li>\n' >> "${METAINFO_FILE}"
+        printf '    </ul>\n' >> "${METAINFO_FILE}"
+        printf '  </description>\n' >> "${METAINFO_FILE}"
+        printf '  <developer_name>mbnoimi</developer_name>\n' >> "${METAINFO_FILE}"
+        printf '  <url type="homepage">%s</url>\n' "${HOMEPAGE_URL}" >> "${METAINFO_FILE}"
+        printf '  <url type="bugtracker">%s/issues</url>\n' "${HOMEPAGE_URL}" >> "${METAINFO_FILE}"
+        printf '  <categories>\n' >> "${METAINFO_FILE}"
+        printf '    <category>System</category>\n' >> "${METAINFO_FILE}"
+        printf '    <category>FileTools</category>\n' >> "${METAINFO_FILE}"
+        printf '    <category>Utility</category>\n' >> "${METAINFO_FILE}"
+        printf '  </categories>\n' >> "${METAINFO_FILE}"
+        printf '  <provides>\n' >> "${METAINFO_FILE}"
+        printf '    <binary>%s</binary>\n' "${NAME}" >> "${METAINFO_FILE}"
+        printf '  </provides>\n' >> "${METAINFO_FILE}"
+        printf '  <launchable type="desktop-id">%s.desktop</launchable>\n' "${NAME}" >> "${METAINFO_FILE}"
+        printf '  <content_rating type="oars-1.1" />\n' >> "${METAINFO_FILE}"
+        printf '</component>\n' >> "${METAINFO_FILE}"
         
         # Create AppRun script
-        cat > "${APPDIR}/AppRun" << 'APPRUN_SCRIPT'
+        cat > "${APPDIR}/AppRun" << 'ENDOFAPPRUN'
 #!/bin/bash
 APPDIR="$(dirname "$(readlink -f "$0")")"
 export LD_LIBRARY_PATH="${APPDIR}/usr/bin/lib:${LD_LIBRARY_PATH}"
-APPRUN_SCRIPT
+ENDOFAPPRUN
         
         echo "exec \"\${APPDIR}/usr/bin/${NAME}\" \"\$@\"" >> "${APPDIR}/AppRun"
         chmod +x "${APPDIR}/AppRun"
