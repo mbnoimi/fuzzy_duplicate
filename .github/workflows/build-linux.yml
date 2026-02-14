@@ -1,0 +1,209 @@
+name: Build Linux Packages
+
+on:
+  push:
+    branches: [ main, master, dev ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.0'
+        channel: 'stable'
+    
+    - name: Install Linux dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+        sudo apt-get install -y imagemagick
+    
+    - name: Get Flutter dependencies
+      run: flutter pub get
+    
+    - name: Generate icons
+      run: dart run flutter_launcher_icons
+    
+    - name: Update app info
+      run: dart tools/update_app_info.dart
+    
+    - name: Extract version info
+      id: version
+      run: |
+        LAUNCHER_NAME=$(grep "launcherName" lib/app_info.dart | awk -F"'" '{print $2}' | tr ' ' '_')
+        NAME=$(grep "name" lib/app_info.dart | awk -F"'" '{print $2}' | tr ' ' '_')
+        VERSION=$(grep "version" lib/app_info.dart | awk -F"'" '{print $2}')
+        DESCRIPTION=$(grep "description" lib/app_info.dart | awk -F"'" '{print $2}')
+        LAUNCHER_NAME_PRETTY=$(grep "launcherName" lib/app_info.dart | awk -F"'" '{print $2}')
+        echo "launcher_name=$LAUNCHER_NAME" >> $GITHUB_OUTPUT
+        echo "name=$NAME" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "description=$DESCRIPTION" >> $GITHUB_OUTPUT
+        echo "launcher_name_pretty=$LAUNCHER_NAME_PRETTY" >> $GITHUB_OUTPUT
+    
+    - name: Build Linux executable
+      run: |
+        flutter clean
+        rm -rf build linux pubspec.lock .dart_tool
+        flutter create --platforms linux .
+        flutter pub get
+        flutter build linux --release
+    
+    - name: Create directories
+      run: |
+        mkdir -p distro
+        mkdir -p .build_tmp
+    
+    - name: Create tarball
+      run: |
+        LAUNCHER_NAME="${{ steps.version.outputs.launcher_name }}"
+        VERSION="${{ steps.version.outputs.version }}"
+        NAME="${{ steps.version.outputs.name }}"
+        mv build/linux/x64/release/bundle/ ".build_tmp/${LAUNCHER_NAME}-${VERSION}"
+        chmod +x ".build_tmp/${LAUNCHER_NAME}-${VERSION}/${NAME}"
+        tar -cavf "distro/${LAUNCHER_NAME}_linux.tar.gz" -C ".build_tmp" "${LAUNCHER_NAME}-${VERSION}" --use-compress-program="gzip -9"
+    
+    - name: Create AppImage
+      run: |
+        LAUNCHER_NAME="${{ steps.version.outputs.launcher_name }}"
+        VERSION="${{ steps.version.outputs.version }}"
+        NAME="${{ steps.version.outputs.name }}"
+        DESCRIPTION="${{ steps.version.outputs.description }}"
+        LAUNCHER_NAME_PRETTY="${{ steps.version.outputs.launcher_name_pretty }}"
+        
+        APPDIR=".build_tmp/${LAUNCHER_NAME}-${VERSION}.AppDir"
+        mkdir -p "${APPDIR}/usr/bin"
+        mkdir -p "${APPDIR}/usr/share/applications"
+        mkdir -p "${APPDIR}/usr/share/icons/hicolor/256x256/apps"
+        mkdir -p "${APPDIR}/usr/share/metainfo"
+        
+        # Copy application files
+        cp -r ".build_tmp/${LAUNCHER_NAME}-${VERSION}/"* "${APPDIR}/usr/bin/"
+        
+        # Create .desktop file
+        tee "${APPDIR}/usr/share/applications/${NAME}.desktop" > /dev/null << 'DESKTOP_EOF'
+[Desktop Entry]
+Name=PLACEHOLDER_NAME
+Comment=PLACEHOLDER_DESC
+Exec=PLACEHOLDER_EXEC
+Icon=PLACEHOLDER_ICON
+Type=Application
+Categories=System;FileTools;Utility;
+Terminal=false
+StartupNotify=true
+StartupWMClass=PLACEHOLDER_WMCLASS
+Keywords=duplicate;file;finder;fuzzy;similar;search;system;utility;
+MimeType=inode/directory;
+DESKTOP_EOF
+        sed -i "s/PLACEHOLDER_NAME/${LAUNCHER_NAME_PRETTY}/g" "${APPDIR}/usr/share/applications/${NAME}.desktop"
+        sed -i "s/PLACEHOLDER_DESC/${DESCRIPTION}/g" "${APPDIR}/usr/share/applications/${NAME}.desktop"
+        sed -i "s/PLACEHOLDER_EXEC/${NAME}/g" "${APPDIR}/usr/share/applications/${NAME}.desktop"
+        sed -i "s/PLACEHOLDER_ICON/${NAME}/g" "${APPDIR}/usr/share/applications/${NAME}.desktop"
+        sed -i "s/PLACEHOLDER_WMCLASS/${NAME}/g" "${APPDIR}/usr/share/applications/${NAME}.desktop"
+        
+        # Copy icon
+        if [ -f "assets/icons/icon.png" ]; then
+            cp "assets/icons/icon.png" "${APPDIR}/usr/share/icons/hicolor/256x256/apps/${NAME}.png"
+            cp "assets/icons/icon.png" "${APPDIR}/${NAME}.png"
+        elif command -v convert &> /dev/null && [ -f "assets/icons/logo.svg" ]; then
+            convert -background none "assets/icons/logo.svg" -resize 256x256 "${APPDIR}/usr/share/icons/hicolor/256x256/apps/${NAME}.png"
+            cp "${APPDIR}/usr/share/icons/hicolor/256x256/apps/${NAME}.png" "${APPDIR}/${NAME}.png"
+        fi
+        
+        # Create AppStream metadata
+        APP_ID="io.github.${NAME}"
+        HOMEPAGE_URL="https://github.com/mbnoimi/${NAME}"
+        
+        tee "${APPDIR}/usr/share/metainfo/${APP_ID}.metainfo.xml" > /dev/null << METAINFO_EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>PLACEHOLDER_APPID</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <name>PLACEHOLDER_NAME</name>
+  <summary>PLACEHOLDER_SUMMARY</summary>
+  <description>
+    <p>PLACEHOLDER_NAME_PRETTY is a powerful tool to find and manage duplicate files using fuzzy matching algorithms.</p>
+    <p>Features include:</p>
+    <ul>
+      <li>GUI and CLI interfaces</li>
+      <li>Fuzzy matching for similar files</li>
+      <li>Duplicate detection and management</li>
+    </ul>
+  </description>
+  <developer_name>mbnoimi</developer_name>
+  <url type="homepage">PLACEHOLDER_URL</url>
+  <url type="bugtracker">PLACEHOLDER_URL/issues</url>
+  <categories>
+    <category>System</category>
+    <category>FileTools</category>
+    <category>Utility</category>
+  </categories>
+  <provides>
+    <binary>PLACEHOLDER_BINARY</binary>
+  </provides>
+  <launchable type="desktop-id">PLACEHOLDER_DESKTOP.desktop</launchable>
+  <content_rating type="oars-1.1" />
+</component>
+METAINFO_EOF
+        sed -i "s|PLACEHOLDER_APPID|${APP_ID}|g" "${APPDIR}/usr/share/metainfo/${APP_ID}.metainfo.xml"
+        sed -i "s|PLACEHOLDER_NAME|${LAUNCHER_NAME_PRETTY}|g" "${APPDIR}/usr/share/metainfo/${APP_ID}.metainfo.xml"
+        sed -i "s|PLACEHOLDER_SUMMARY|${DESCRIPTION}|g" "${APPDIR}/usr/share/metainfo/${APP_ID}.metainfo.xml"
+        sed -i "s|PLACEHOLDER_NAME_PRETTY|${LAUNCHER_NAME_PRETTY}|g" "${APPDIR}/usr/share/metainfo/${APP_ID}.metainfo.xml"
+        sed -i "s|PLACEHOLDER_URL|${HOMEPAGE_URL}|g" "${APPDIR}/usr/share/metainfo/${APP_ID}.metainfo.xml"
+        sed -i "s|PLACEHOLDER_BINARY|${NAME}|g" "${APPDIR}/usr/share/metainfo/${APP_ID}.metainfo.xml"
+        sed -i "s|PLACEHOLDER_DESKTOP|${NAME}|g" "${APPDIR}/usr/share/metainfo/${APP_ID}.metainfo.xml"
+        
+        # Create AppRun script
+        tee "${APPDIR}/AppRun" > /dev/null << 'APPRUN_EOF'
+#!/bin/bash
+APPDIR="$(dirname "$(readlink -f "$0")")"
+export LD_LIBRARY_PATH="${APPDIR}/usr/bin/lib:${LD_LIBRARY_PATH}"
+APPRUN_EOF
+        echo "exec \"\${APPDIR}/usr/bin/${NAME}\" \"\$@\"" >> "${APPDIR}/AppRun"
+        chmod +x "${APPDIR}/AppRun"
+        
+        # Create symlinks
+        ln -sf "usr/share/applications/${NAME}.desktop" "${APPDIR}/${NAME}.desktop"
+        if [ -f "${APPDIR}/${NAME}.png" ]; then
+            ln -sf "${NAME}.png" "${APPDIR}/.DirIcon"
+        fi
+        
+        # Download appimagetool
+        wget -q -O "/tmp/appimagetool-x86_64.AppImage" "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
+        chmod +x "/tmp/appimagetool-x86_64.AppImage"
+        
+        # Build AppImage
+        ARCH=x86_64 "/tmp/appimagetool-x86_64.AppImage" "${APPDIR}" "distro/${LAUNCHER_NAME}-${VERSION}-x86_64.AppImage"
+        chmod +x "distro/${LAUNCHER_NAME}-${VERSION}-x86_64.AppImage"
+    
+    - name: Cleanup build directory
+      run: rm -rf .build_tmp
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-build-${{ steps.version.outputs.version }}
+        path: |
+          distro/*.tar.gz
+          distro/*.AppImage
+        retention-days: 30
+    
+    - name: Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          distro/*.tar.gz
+          distro/*.AppImage
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

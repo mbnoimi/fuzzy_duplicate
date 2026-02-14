@@ -1,0 +1,101 @@
+name: Build Windows Installer
+
+on:
+  push:
+    branches: [ main, master, dev ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version override (leave empty to use app_info.dart)'
+        required: false
+        default: ''
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.0'
+        channel: 'stable'
+    
+    - name: Install dependencies
+      run: |
+        choco install innosetup -y
+    
+    - name: Get Flutter dependencies
+      run: flutter pub get
+    
+    - name: Generate icons
+      run: dart run flutter_launcher_icons
+    
+    - name: Update app info
+      run: dart tools/update_app_info.dart
+    
+    - name: Extract version info
+      id: version
+      shell: pwsh
+      run: |
+        $launcherName = (Get-Content lib/app_info.dart | Select-String "launcherName" | ForEach-Object { 
+            if ($_.Line -match "'([^']+)'") { $matches[1] -replace " ", "_" }
+        })
+        $name = (Get-Content lib/app_info.dart | Select-String "name" | ForEach-Object { 
+            if ($_.Line -match "'([^']+)'") { $matches[1] -replace " ", "_" }
+        })
+        $version = (Get-Content lib/app_info.dart | Select-String "version" | ForEach-Object { 
+            if ($_.Line -match "'([^']+)'") { $matches[1] }
+        })
+        Write-Output "launcher_name=$launcherName" >> $env:GITHUB_OUTPUT
+        Write-Output "name=$name" >> $env:GITHUB_OUTPUT
+        Write-Output "version=$version" >> $env:GITHUB_OUTPUT
+    
+    - name: Build Windows executable
+      run: flutter build windows --release
+    
+    - name: Create installer
+      shell: pwsh
+      run: |
+        $isccPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+        & $isccPath "/Odistro" "fuzzy_duplicate.iss"
+        
+        # Rename the output file
+        $outputFile = Get-ChildItem "distro\Fuzzy_Duplicate-*.exe" -ErrorAction SilentlyContinue
+        if ($outputFile) {
+            $newName = "distro\${{ steps.version.outputs.launcher_name }}-${{ steps.version.outputs.version }}-setup.exe"
+            Move-Item $outputFile.FullName $newName -Force
+        }
+    
+    - name: Create ZIP archive
+      shell: pwsh
+      run: |
+        $buildDir = ".build_tmp"
+        New-Item -ItemType Directory -Force -Path $buildDir
+        Move-Item build/windows/x64/runner/Release "$buildDir/${{ steps.version.outputs.launcher_name }}-${{ steps.version.outputs.version }}"
+        Compress-Archive -Path "$buildDir/${{ steps.version.outputs.launcher_name }}-${{ steps.version.outputs.version }}" -DestinationPath "distro/${{ steps.version.outputs.launcher_name }}_windows.zip" -Force
+        Remove-Item -Recurse -Force $buildDir
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-build-${{ steps.version.outputs.version }}
+        path: |
+          distro/*.exe
+          distro/*.zip
+        retention-days: 30
+    
+    - name: Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          distro/*.exe
+          distro/*.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
