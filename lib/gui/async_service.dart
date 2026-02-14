@@ -108,7 +108,8 @@ Future<List<Map<String, dynamic>>> _findFuzzyDuplicatesInIsolate(
       if (_abortRequested) break;
 
       if (fileInfoList[i].hash == null) {
-        final hash = _coreService.calculateFileHash(fileInfoList[i].filePath);
+        final hash =
+            await _coreService.calculateFileHash(fileInfoList[i].filePath);
         fileInfoList[i] = FileInfo(
           filePath: fileInfoList[i].filePath,
           fileName: fileInfoList[i].fileName,

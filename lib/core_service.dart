@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:path/path.dart' as path;
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:xxh3/xxh3.dart';
@@ -216,22 +217,53 @@ class FuzzyDuplicateService {
         .toList();
   }
 
-  // Core hash calculation - shared by both services
-  String calculateFileHash(String filePath) {
+  // Core hash calculation - uses chunked reading to handle large files
+  // without loading entire file into memory (max 1MB chunks)
+  Future<String> calculateFileHash(String filePath) async {
     try {
       final file = File(filePath);
-      final bytes = file.readAsBytesSync();
+      final fileSize = await file.length();
 
-      // Use xxHash3 which is extremely fast (5-10x faster than MD5)
-      // Perfect for non-cryptographic duplicate detection
-      final hash = xxh3(bytes);
-      return hash.toString();
+      // For small files (< 10MB), use simple hash
+      if (fileSize < 10 * 1024 * 1024) {
+        final bytes = await file.readAsBytes();
+        return xxh3(bytes).toString();
+      }
+
+      // For large files, sample multiple chunks
+      final chunks = <Uint8List>[];
+      final raf = await file.open();
+
+      // Read first 1MB
+      chunks.add(await raf.read(1024 * 1024));
+
+      // Read middle chunk
+      await raf.setPosition(fileSize ~/ 2);
+      chunks.add(await raf.read(1024 * 1024));
+
+      // Read last 1MB
+      await raf.setPosition(fileSize - 1024 * 1024);
+      chunks.add(await raf.read(1024 * 1024));
+
+      await raf.close();
+
+      // Combine chunks and hash
+      final totalLength =
+          chunks.fold<int>(0, (sum, chunk) => sum + chunk.length);
+      final combined = Uint8List(totalLength);
+      var offset = 0;
+      for (final chunk in chunks) {
+        combined.setRange(offset, offset + chunk.length, chunk);
+        offset += chunk.length;
+      }
+      return xxh3(combined).toString();
     } catch (e) {
       return '';
     }
   }
 
-  // Optimized scanDirectory - Uses parallel processing and batch operations
+  // Optimized scanDirectory - Uses streaming to handle large directories
+  // without loading all files into memory at once
   Future<List<FileInfo>> scanDirectory(
     String directoryPath,
     String fileType, [
@@ -254,50 +286,59 @@ class FuzzyDuplicateService {
         throw Exception('Directory does not exist: $directoryPath');
       }
 
-      // Collect all file entities first (faster than processing one-by-one)
-      final List<FileSystemEntity> entities = await dir
-          .list(recursive: true, followLinks: false)
-          .where((entity) => entity is File)
-          .toList();
-
-      // Stage 2: File filtering and processing (20-80%)
+      // Stage 2: File filtering and processing using streaming (10-90%)
       onProgress?.call(0.2, 'Filtering and processing files...');
 
       final List<FileInfo> files = [];
       final batchSize = 100;
+      var currentBatch = <Future<FileInfo?>>[];
+      var totalProcessed = 0;
 
-      for (int i = 0; i < entities.length; i += batchSize) {
-        final batch = entities.skip(i).take(batchSize);
-        final batchResults = await Future.wait(
-          batch.map((entity) async {
-            final file = entity as File;
-            final extension =
-                path.extension(file.path).toLowerCase().replaceFirst('.', '');
+      // Use streaming to process files as they're discovered
+      await for (final entity
+          in dir.list(recursive: true, followLinks: false)) {
+        if (entity is! File) continue;
 
-            // Quick extension check
-            if (excludeSet.contains(extension)) return null;
-            if (!hasWildcard && !extensionSet.contains(extension)) return null;
+        final extension =
+            path.extension(entity.path).toLowerCase().replaceFirst('.', '');
 
-            try {
-              final stat = await file.stat();
-              return FileInfo(
-                filePath: file.path,
-                fileName: path.basename(file.path),
-                fileSize: stat.size,
-                modifiedDate: stat.modified,
-              );
-            } catch (_) {
-              return null;
-            }
-          }),
-        );
+        // Quick extension check
+        if (excludeSet.contains(extension)) continue;
+        if (!hasWildcard && !extensionSet.contains(extension)) continue;
 
+        // Add to batch
+        currentBatch.add(Future(() async {
+          try {
+            final stat = await entity.stat();
+            return FileInfo(
+              filePath: entity.path,
+              fileName: path.basename(entity.path),
+              fileSize: stat.size,
+              modifiedDate: stat.modified,
+            );
+          } catch (_) {
+            return null;
+          }
+        }));
+
+        // Process batch when it reaches batchSize
+        if (currentBatch.length >= batchSize) {
+          final batchResults = await Future.wait(currentBatch);
+          files.addAll(batchResults.whereType<FileInfo>());
+          totalProcessed += currentBatch.length;
+          currentBatch = [];
+
+          // Update progress (capped at 90% since we don't know total count)
+          onProgress?.call(
+              0.2 + (totalProcessed / (totalProcessed + 1000)).clamp(0.0, 0.6),
+              'Processed ${files.length} files...');
+        }
+      }
+
+      // Process remaining items in batch
+      if (currentBatch.isNotEmpty) {
+        final batchResults = await Future.wait(currentBatch);
         files.addAll(batchResults.whereType<FileInfo>());
-
-        // Update progress during file processing (20% to 80%)
-        final progress = 0.2 + (i + batchSize) / entities.length * 0.6;
-        onProgress?.call(
-            progress.clamp(0.2, 0.8), 'Processed ${files.length} files...');
       }
 
       // Stage 3: Finalizing file list (90%)
@@ -342,8 +383,7 @@ class FuzzyDuplicateService {
           List.generate(endIdx - i, (idx) async {
             final fileIdx = i + idx;
             if (!processedFiles.contains(fileIdx)) {
-              final hash = await Future(
-                  () => calculateFileHash(files[fileIdx].filePath));
+              final hash = await calculateFileHash(files[fileIdx].filePath);
               files[fileIdx] = FileInfo(
                 filePath: files[fileIdx].filePath,
                 fileName: files[fileIdx].fileName,
@@ -390,9 +430,8 @@ class FuzzyDuplicateService {
     // Stage 4: Core comparison process (40-90%)
     onProgress?.call(0.4, 'Finding similar files...');
 
-    // Cache basename extraction and similarity calculations
+    // Cache basename extraction only (not similarity - to save memory)
     final Map<int, String> basenameCache = {};
-    final Map<String, double> similarityCache = {};
 
     String getBasename(int idx) {
       return basenameCache.putIfAbsent(
@@ -415,6 +454,7 @@ class FuzzyDuplicateService {
 
       final List<FileInfo> similarFiles = [files[i]];
       final String baseName = getBasename(i);
+      double? firstSimilarity;
 
       // Determine comparison candidates based on constraints
       List<int> candidates;
@@ -441,16 +481,14 @@ class FuzzyDuplicateService {
         }
 
         bool isSimilar = false;
+        double nameSimilarity = 0.0;
 
         if (checkContent && files[i].hash != null && files[j].hash != null) {
           isSimilar = files[i].hash == files[j].hash;
+          nameSimilarity = 1.0; // Hash match means 100% similar
         } else {
-          // Cache similarity calculation
-          final cacheKey = '$i-$j';
-          final nameSimilarity = similarityCache.putIfAbsent(
-            cacheKey,
-            () => ratio(baseName, getBasename(j)) / 100.0,
-          );
+          // Compute similarity on-the-fly (no cache to save memory)
+          nameSimilarity = ratio(baseName, getBasename(j)) / 100.0;
 
           // Early termination if name similarity is too low
           if (nameSimilarity < similarityThreshold) continue;
@@ -475,13 +513,13 @@ class FuzzyDuplicateService {
         if (isSimilar) {
           similarFiles.add(files[j]);
           processedFiles.add(j);
+          firstSimilarity ??= nameSimilarity;
         }
       }
 
       if (similarFiles.length >= minFileCount) {
-        final avgSimilarity = similarFiles.length > 2
-            ? 0.9
-            : similarityCache['$i-${files.indexOf(similarFiles[1])}'] ?? 0.9;
+        final avgSimilarity =
+            similarFiles.length > 2 ? 0.9 : (firstSimilarity ?? 0.9);
 
         duplicateGroups.add(
           DuplicateGroup(files: similarFiles, similarity: avgSimilarity),
