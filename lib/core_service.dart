@@ -506,8 +506,11 @@ class FuzzyDuplicateService {
       if (processedFiles.contains(i)) continue;
 
       // Report current file being processed with stage progress (40% to 90%)
-      final stageProgress = 0.4 + (i / files.length) * 0.5;
-      onProgress?.call(stageProgress, files[i].fileName);
+      // Throttle updates to avoid excessive UI rebuilds (every 50 files)
+      if (i % 50 == 0 || i == files.length - 1) {
+        final stageProgress = 0.4 + (i / files.length) * 0.5;
+        onProgress?.call(stageProgress, files[i].fileName);
+      }
 
       // Yield control to prevent UI freezing (only for main thread)
       if (enableUIYielding && i % 10 == 0) {
